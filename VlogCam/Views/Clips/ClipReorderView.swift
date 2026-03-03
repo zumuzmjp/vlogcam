@@ -20,11 +20,15 @@ struct ClipReorderView: View {
                             HStack(spacing: 12) {
                                 if let thumbnailURL = clip.thumbnailURL,
                                    let uiImage = UIImage(contentsOfFile: thumbnailURL.path()) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .aspectRatio(9/16, contentMode: .fit)
-                                        .frame(height: 60)
-                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    ZStack {
+                                        Color.black
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFit()
+                                    }
+                                    .aspectRatio(9/16, contentMode: .fit)
+                                    .frame(height: 60)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
                                 } else {
                                     RoundedRectangle(cornerRadius: 4)
                                         .fill(RetroTheme.surfaceBackground)

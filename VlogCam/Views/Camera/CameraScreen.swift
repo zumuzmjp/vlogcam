@@ -6,6 +6,7 @@ import Combine
 final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     let cameraService = CameraService()
     let recordingManager = ClipRecordingManager()
+    let orientationManager = DeviceOrientationManager()
 
     @Published var selectedAlbum: VlogAlbum?
     @Published var showCreateAlbum = false
@@ -17,6 +18,7 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         didSet { recordingManager.maxDuration = maxDuration }
     }
     @Published var permissionGranted = false
+    @Published var iconRotationAngle: Double = 0
 
     var modelContext: ModelContext?
 
@@ -30,6 +32,9 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         cameraService.$permissionGranted
             .receive(on: RunLoop.main)
             .assign(to: &$permissionGranted)
+        orientationManager.$iconRotationAngle
+            .receive(on: RunLoop.main)
+            .assign(to: &$iconRotationAngle)
     }
 
     func setup() async {
@@ -38,6 +43,7 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         recordingManager.configure(movieOutput: cameraService.movieFileOutput)
         recordingManager.delegate = self
         cameraService.startSession()
+        orientationManager.startMonitoring()
     }
 
     func handleRecordTap() {
@@ -48,7 +54,7 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         if recordingManager.isRecording {
             recordingManager.stopRecording()
         } else {
-            recordingManager.startRecording()
+            recordingManager.startRecording(orientation: orientationManager.deviceOrientation)
         }
     }
 
@@ -155,11 +161,7 @@ struct CameraScreen: View {
                             CameraPreviewView(session: viewModel.cameraService.captureSession)
                                 .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
                                 .overlay {
-                                    RetroOverlayView(
-                                        isRecording: viewModel.isRecording,
-                                        progress: viewModel.recordingProgress,
-                                        maxDuration: viewModel.maxDuration
-                                    )
+                                    RetroOverlayView(isRecording: viewModel.isRecording)
                                     .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
                                 }
                         } else {
@@ -190,6 +192,7 @@ struct CameraScreen: View {
                                 .font(.system(size: 22))
                                 .foregroundStyle(RetroTheme.cream)
                                 .frame(width: 44, height: 44)
+                                .rotationEffect(.degrees(viewModel.iconRotationAngle))
                         }
 
                         RecordButton(
@@ -208,6 +211,7 @@ struct CameraScreen: View {
                                 .font(VintageFont.label(14))
                                 .foregroundStyle(RetroTheme.cream)
                                 .frame(width: 44, height: 44)
+                                .rotationEffect(.degrees(viewModel.iconRotationAngle))
                         }
                     }
                     .padding(.bottom, 24)
@@ -222,6 +226,7 @@ struct CameraScreen: View {
             }
             .onDisappear {
                 viewModel.cameraService.stopSession()
+                viewModel.orientationManager.stopMonitoring()
             }
             .onAppear {
                 if viewModel.selectedAlbum == nil {

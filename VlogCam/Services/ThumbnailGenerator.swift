@@ -6,7 +6,7 @@ enum ThumbnailGenerator {
         let asset = AVURLAsset(url: videoURL)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 300, height: 534)
+        generator.maximumSize = CGSize(width: 534, height: 534)
 
         do {
             let (cgImage, _) = try await generator.image(at: time)

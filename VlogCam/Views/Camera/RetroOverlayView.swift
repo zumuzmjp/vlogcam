@@ -2,8 +2,6 @@ import SwiftUI
 
 struct RetroOverlayView: View {
     let isRecording: Bool
-    let progress: Double
-    let maxDuration: Double
 
     @State private var recPulse = false
 
@@ -62,33 +60,6 @@ struct RetroOverlayView: View {
                 }.stroke(color, lineWidth: lineW)
             }
 
-            // REC indicator + timer
-            VStack {
-                HStack(spacing: 8) {
-                    if isRecording {
-                        // Pulsing red dot
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 12, height: 12)
-                            .opacity(recPulse ? 1.0 : 0.3)
-
-                        Text("REC")
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.red)
-
-                        // Timer
-                        Text(String(format: "%.1f / %.0fs", progress * maxDuration, maxDuration))
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-
-                Spacer()
-            }
         }
         .allowsHitTesting(false)
         .onChange(of: isRecording) { _, recording in

@@ -22,7 +22,7 @@ final class ClipRecordingManager: NSObject, ObservableObject {
         self.movieOutput = movieOutput
     }
 
-    func startRecording() {
+    func startRecording(orientation: AVCaptureVideoOrientation = .portrait) {
         guard let movieOutput, !movieOutput.isRecording else { return }
 
         do {
@@ -30,6 +30,11 @@ final class ClipRecordingManager: NSObject, ObservableObject {
         } catch {
             delegate?.recordingDidFail(error: error)
             return
+        }
+
+        if let connection = movieOutput.connection(with: .video),
+           connection.isVideoOrientationSupported {
+            connection.videoOrientation = orientation
         }
 
         let fileName = clipStorage.generateClipFileName()

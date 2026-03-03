@@ -16,6 +16,8 @@ final class VideoStitchingService {
         }
     }
 
+    private let renderSize = CGSize(width: 1080, height: 1920)
+
     func stitch(clips: [VideoClip], progress: @escaping (Float) -> Void) async throws -> URL {
         guard !clips.isEmpty else { throw StitchError.noClips }
 
@@ -26,6 +28,7 @@ final class VideoStitchingService {
         }
 
         var currentTime = CMTime.zero
+        var instructions: [AVMutableVideoCompositionInstruction] = []
 
         for clip in clips {
             let clipURL = URL.clipsDirectory.appending(component: clip.fileName)
@@ -38,8 +41,20 @@ final class VideoStitchingService {
                     of: assetVideoTrack,
                     at: currentTime
                 )
-                let transform = try await assetVideoTrack.load(.preferredTransform)
-                videoTrack.preferredTransform = transform
+
+                let naturalSize = try await assetVideoTrack.load(.naturalSize)
+                let preferredTransform = try await assetVideoTrack.load(.preferredTransform)
+                let fitTransform = self.letterboxTransform(
+                    naturalSize: naturalSize,
+                    preferredTransform: preferredTransform
+                )
+
+                let instruction = AVMutableVideoCompositionInstruction()
+                instruction.timeRange = CMTimeRange(start: currentTime, duration: duration)
+                let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
+                layerInstruction.setTransform(fitTransform, at: currentTime)
+                instruction.layerInstructions = [layerInstruction]
+                instructions.append(instruction)
             }
 
             if let assetAudioTrack = try? await asset.loadTracks(withMediaType: .audio).first {
@@ -53,6 +68,11 @@ final class VideoStitchingService {
             currentTime = CMTimeAdd(currentTime, duration)
         }
 
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.renderSize = renderSize
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        videoComposition.instructions = instructions
+
         let outputURL = URL.documentsDirectory
             .appending(component: "stitched_\(ISO8601DateFormatter().string(from: .now).replacingOccurrences(of: ":", with: "-")).mov")
 
@@ -63,6 +83,7 @@ final class VideoStitchingService {
         exportSession.outputURL = outputURL
         exportSession.outputFileType = .mov
         exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.videoComposition = videoComposition
 
         // Progress monitoring
         let progressTask = Task {
@@ -87,5 +108,31 @@ final class VideoStitchingService {
         default:
             throw StitchError.exportFailed("Unknown status")
         }
+    }
+
+    private func letterboxTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform) -> CGAffineTransform {
+        // Calculate effective display size after applying preferredTransform
+        let effectiveRect = CGRect(origin: .zero, size: naturalSize).applying(preferredTransform)
+        let effectiveWidth = abs(effectiveRect.width)
+        let effectiveHeight = abs(effectiveRect.height)
+
+        // Scale to fit within renderSize
+        let scaleX = renderSize.width / effectiveWidth
+        let scaleY = renderSize.height / effectiveHeight
+        let scale = min(scaleX, scaleY)
+
+        let scaledWidth = effectiveWidth * scale
+        let scaledHeight = effectiveHeight * scale
+        let offsetX = (renderSize.width - scaledWidth) / 2
+        let offsetY = (renderSize.height - scaledHeight) / 2
+
+        // Compose: preferredTransform → normalize origin → scale → center
+        let normalizeX = -effectiveRect.origin.x
+        let normalizeY = -effectiveRect.origin.y
+
+        return preferredTransform
+            .concatenating(CGAffineTransform(translationX: normalizeX, y: normalizeY))
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
     }
 }

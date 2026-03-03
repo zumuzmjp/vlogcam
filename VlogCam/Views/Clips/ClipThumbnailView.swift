@@ -8,11 +8,13 @@ struct ClipThumbnailView: View {
 
     var body: some View {
         ZStack {
+            Color.black
+
             if let thumbnailURL = clip.thumbnailURL,
                let uiImage = UIImage(contentsOfFile: thumbnailURL.path()) {
                 Image(uiImage: uiImage)
                     .resizable()
-                    .aspectRatio(9/16, contentMode: .fill)
+                    .scaledToFit()
             } else {
                 Rectangle()
                     .fill(RetroTheme.surfaceBackground)
