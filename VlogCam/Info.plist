@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>VlogCam needs camera access to record vlog clips.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>VlogCam needs microphone access to record audio with your clips.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>VlogCam needs photo library access to save your stitched videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>VlogCam needs photo library access to manage your vlog albums.</string>
+	<key>UIBackgroundModes</key>
+	<array/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>vlogcam</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>zumzumjp.VlogCam</string>
+		</dict>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>
