@@ -21,6 +21,7 @@ struct WidgetSharedData: Codable {
     let albums: [WidgetAlbumSnapshot]
     let latestAlbumID: String?
     let totalClips: Int
+    let selectedAlbumID: String?
 }
 
 enum WidgetDataProvider {
@@ -29,7 +30,7 @@ enum WidgetDataProvider {
         guard FileManager.default.fileExists(atPath: fileURL.path()),
               let data = try? Data(contentsOf: fileURL),
               let decoded = try? JSONDecoder().decode(WidgetSharedData.self, from: data) else {
-            return WidgetSharedData(albums: [], latestAlbumID: nil, totalClips: 0)
+            return WidgetSharedData(albums: [], latestAlbumID: nil, totalClips: 0, selectedAlbumID: nil)
         }
         return decoded
     }

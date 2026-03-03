@@ -8,14 +8,24 @@ struct LockScreenProvider: TimelineProvider {
 
     func getSnapshot(in context: Context, completion: @escaping (LockScreenEntry) -> Void) {
         let data = WidgetDataProvider.loadData()
-        completion(LockScreenEntry(date: .now, clipCount: data.totalClips))
+        let clipCount = Self.selectedAlbumClipCount(from: data)
+        completion(LockScreenEntry(date: .now, clipCount: clipCount))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<LockScreenEntry>) -> Void) {
         let data = WidgetDataProvider.loadData()
-        let entry = LockScreenEntry(date: .now, clipCount: data.totalClips)
+        let clipCount = Self.selectedAlbumClipCount(from: data)
+        let entry = LockScreenEntry(date: .now, clipCount: clipCount)
         let timeline = Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(300)))
         completion(timeline)
+    }
+
+    private static func selectedAlbumClipCount(from data: WidgetSharedData) -> Int {
+        if let selectedID = data.selectedAlbumID,
+           let album = data.albums.first(where: { $0.id == selectedID }) {
+            return album.clipCount
+        }
+        return data.albums.first?.clipCount ?? 0
     }
 }
 

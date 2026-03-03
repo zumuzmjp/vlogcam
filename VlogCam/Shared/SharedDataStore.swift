@@ -13,6 +13,7 @@ struct SharedWidgetData: Codable {
     let albums: [SharedAlbumSnapshot]
     let latestAlbumID: String?
     let totalClips: Int
+    let selectedAlbumID: String?
 }
 
 final class SharedDataStore {

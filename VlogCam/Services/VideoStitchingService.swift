@@ -18,8 +18,10 @@ final class VideoStitchingService {
 
     private let renderSize = CGSize(width: 1080, height: 1920)
 
-    func stitch(clips: [VideoClip], progress: @escaping (Float) -> Void) async throws -> URL {
+    func stitch(clips: [VideoClip], cacheKey: String? = nil, progress: @escaping (Float) -> Void) async throws -> URL {
         guard !clips.isEmpty else { throw StitchError.noClips }
+
+        try? URL.ensureDirectoryExists(URL.stitchedDirectory)
 
         let composition = AVMutableComposition()
         guard let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
@@ -73,8 +75,15 @@ final class VideoStitchingService {
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
         videoComposition.instructions = instructions
 
-        let outputURL = URL.documentsDirectory
-            .appending(component: "stitched_\(ISO8601DateFormatter().string(from: .now).replacingOccurrences(of: ":", with: "-")).mov")
+        let filename: String
+        if let cacheKey {
+            filename = "stitch_\(cacheKey).mov"
+        } else {
+            filename = "stitched_\(ISO8601DateFormatter().string(from: .now).replacingOccurrences(of: ":", with: "-")).mov"
+        }
+        let outputURL = URL.stitchedDirectory.appending(component: filename)
+        // Remove existing file if re-stitching
+        try? FileManager.default.removeItem(at: outputURL)
 
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
             throw StitchError.exportFailed("Cannot create export session")

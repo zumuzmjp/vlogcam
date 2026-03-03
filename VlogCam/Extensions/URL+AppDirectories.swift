@@ -13,6 +13,10 @@ extension URL {
         documentsDirectory.appending(component: "Thumbnails")
     }
 
+    static var stitchedDirectory: URL {
+        documentsDirectory.appending(component: "Stitched")
+    }
+
     static func ensureDirectoryExists(_ url: URL) throws {
         if !FileManager.default.fileExists(atPath: url.path()) {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

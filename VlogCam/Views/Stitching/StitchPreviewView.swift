@@ -12,9 +12,12 @@ struct StitchPreviewView: View {
     @State private var player: AVPlayer?
     @State private var isSaving = false
     @State private var saved = false
+    @State private var loadedFromCache = false
+    @State private var showHistory = false
 
     private let stitchService = VideoStitchingService()
     private let photoService = PhotoLibraryService()
+    private let cacheService = StitchCacheService.shared
 
     private var clipsToStitch: [VideoClip] {
         if let page {
@@ -33,6 +36,12 @@ struct StitchPreviewView: View {
                         VideoPlayer(player: player)
                             .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
                             .padding(.horizontal)
+
+                        if loadedFromCache {
+                            Text("Loaded from cache")
+                                .font(VintageFont.caption())
+                                .foregroundStyle(RetroTheme.olive)
+                        }
                     } else if isStitching {
                         StitchProgressView(progress: progress)
                     } else if let error {
@@ -62,22 +71,35 @@ struct StitchPreviewView: View {
 
                     Spacer()
 
-                    if stitchedURL != nil && !saved {
-                        Button("Save to Photos") {
-                            saveToPhotos()
+                    VStack(spacing: 12) {
+                        if stitchedURL != nil && !saved {
+                            Button("Save to Photos") {
+                                saveToPhotos()
+                            }
+                            .buttonStyle(RetroButtonStyle())
+                            .disabled(isSaving)
+                        } else if saved {
+                            Label("Saved!", systemImage: "checkmark.circle.fill")
+                                .font(VintageFont.body())
+                                .foregroundStyle(RetroTheme.olive)
                         }
-                        .buttonStyle(RetroButtonStyle())
-                        .disabled(isSaving)
-                    } else if saved {
-                        Label("Saved!", systemImage: "checkmark.circle.fill")
-                            .font(VintageFont.body())
-                            .foregroundStyle(RetroTheme.olive)
-                    } else if !isStitching {
-                        Button("Stitch Clips") {
-                            startStitching()
+
+                        if !isStitching {
+                            if loadedFromCache {
+                                Button("Re-stitch") {
+                                    loadedFromCache = false
+                                    saved = false
+                                    startStitching()
+                                }
+                                .buttonStyle(RetroButtonStyle(color: RetroTheme.warmBrown))
+                            } else if stitchedURL == nil {
+                                Button("Stitch Clips") {
+                                    startStitching()
+                                }
+                                .buttonStyle(RetroButtonStyle())
+                                .disabled(clipsToStitch.isEmpty)
+                            }
                         }
-                        .buttonStyle(RetroButtonStyle())
-                        .disabled(clipsToStitch.isEmpty)
                     }
                 }
                 .padding(.vertical, 20)
@@ -89,21 +111,60 @@ struct StitchPreviewView: View {
                     Button("Close") { dismiss() }
                         .foregroundStyle(RetroTheme.accent)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showHistory = true
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundStyle(RetroTheme.accent)
+                    }
+                }
             }
+            .sheet(isPresented: $showHistory) {
+                StitchHistoryView()
+            }
+            .onAppear {
+                loadCachedIfAvailable()
+            }
+        }
+    }
+
+    private func loadCachedIfAvailable() {
+        let clips = clipsToStitch
+        guard !clips.isEmpty else { return }
+        if let entry = cacheService.cachedEntry(for: clips) {
+            stitchedURL = entry.fileURL
+            player = AVPlayer(url: entry.fileURL)
+            player?.play()
+            loadedFromCache = true
         }
     }
 
     private func startStitching() {
         isStitching = true
         error = nil
+        player = nil
+        stitchedURL = nil
+        let clips = clipsToStitch
+        let key = cacheService.cacheKey(for: clips)
         Task {
             do {
-                let url = try await stitchService.stitch(clips: clipsToStitch) { p in
+                let url = try await stitchService.stitch(clips: clips, cacheKey: key) { p in
                     progress = p
                 }
                 stitchedURL = url
                 player = AVPlayer(url: url)
                 player?.play()
+
+                let totalDur = clips.reduce(0.0) { $0 + $1.duration }
+                cacheService.save(
+                    cacheKey: key,
+                    albumTitle: album.title,
+                    pageLabel: page?.label,
+                    clipCount: clips.count,
+                    totalDuration: totalDur,
+                    fileURL: url
+                )
             } catch {
                 self.error = error.localizedDescription
             }

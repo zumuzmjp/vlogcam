@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import WidgetKit
 
 @MainActor
 final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
@@ -127,10 +128,12 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
                 updatedAt: .now
             )
         }
+        let selectedID = selectedAlbum.map { $0.persistentModelID.hashValue.description }
         let data = SharedWidgetData(
             albums: snapshots,
             latestAlbumID: snapshots.first?.id,
-            totalClips: snapshots.reduce(0) { $0 + $1.clipCount }
+            totalClips: snapshots.reduce(0) { $0 + $1.clipCount },
+            selectedAlbumID: selectedID
         )
         SharedDataStore.shared.write(data)
     }
@@ -237,6 +240,10 @@ struct CameraScreen: View {
                 if viewModel.selectedAlbum == nil {
                     viewModel.selectedAlbum = newAlbums.first
                 }
+            }
+            .onChange(of: viewModel.selectedAlbum) { _, _ in
+                viewModel.updateWidgetData()
+                WidgetCenter.shared.reloadTimelines(ofKind: "VlogCamLockScreenWidget")
             }
             .sheet(isPresented: $viewModel.showCreateAlbum) {
                 CreateAlbumSheet()
