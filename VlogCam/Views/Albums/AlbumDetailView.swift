@@ -5,6 +5,7 @@ struct AlbumDetailView: View {
     @State private var currentPageIndex = 0
     @State private var showEdit = false
     @State private var showStitchAll = false
+    @State private var pickupState = ClipPickupState()
 
     var body: some View {
         ZStack {
@@ -22,9 +23,17 @@ struct AlbumDetailView: View {
                         .foregroundStyle(RetroTheme.faded)
                 }
             } else {
-                PageCurlContainer(pages: album.sortedPages, currentIndex: $currentPageIndex)
+                PageCurlContainer(pages: album.sortedPages, currentIndex: $currentPageIndex, pickupState: pickupState)
             }
         }
+        .overlay(alignment: .top) {
+            if pickupState.isActive {
+                ClipPickupBadge(pickupState: pickupState)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: pickupState.isActive)
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -4,6 +4,7 @@ import UIKit
 struct PageCurlContainer: UIViewControllerRepresentable {
     let pages: [AlbumPage]
     @Binding var currentIndex: Int
+    let pickupState: ClipPickupState
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -52,7 +53,7 @@ struct PageCurlContainer: UIViewControllerRepresentable {
         func viewController(at index: Int) -> UIViewController? {
             guard index >= 0, index < parent.pages.count else { return nil }
             let page = parent.pages[index]
-            let hostingVC = UIHostingController(rootView: AlbumPageView(page: page))
+            let hostingVC = UIHostingController(rootView: AlbumPageView(page: page).environment(parent.pickupState))
             hostingVC.view.tag = index
             return hostingVC
         }

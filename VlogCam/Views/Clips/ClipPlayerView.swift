@@ -49,18 +49,23 @@ struct ClipPlayerView: View {
                     .padding()
             }
         }
-        .overlay(alignment: .bottomLeading) {
-            VStack(alignment: .leading, spacing: 4) {
+        .overlay(alignment: .top) {
+            VStack(spacing: 2) {
                 Text(String(format: "%.1fs", clip.duration))
                     .font(VintageFont.label())
                 Text(clip.recordedAt.formatted(date: .abbreviated, time: .shortened))
                     .font(VintageFont.caption())
             }
-            .foregroundStyle(.white)
-            .padding()
-            .background(.black.opacity(0.4))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .padding()
+            .foregroundStyle(RetroTheme.cream)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(RetroTheme.cardBackground.opacity(0.9))
+            .overlay(
+                RoundedRectangle(cornerRadius: RetroTheme.smallCornerRadius)
+                    .stroke(RetroTheme.warmBrown.opacity(0.5), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: RetroTheme.smallCornerRadius))
+            .padding(.top, 12)
         }
     }
 }

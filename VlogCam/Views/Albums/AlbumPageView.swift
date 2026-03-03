@@ -4,6 +4,8 @@ struct AlbumPageView: View {
     let page: AlbumPage
     @State private var showReorder = false
     @State private var showStitch = false
+    @Environment(ClipPickupState.self) private var pickupState: ClipPickupState?
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         VStack(spacing: 12) {
@@ -30,15 +32,25 @@ struct AlbumPageView: View {
                         .font(VintageFont.body(14))
                         .foregroundStyle(RetroTheme.faded)
                 }
+                if let pickupState, pickupState.isActive, pickupState.sourcePage?.id != page.id {
+                    dropButton(pickupState: pickupState)
+                        .padding(.top, 16)
+                }
                 Spacer()
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
-                        ForEach(page.sortedClips) { clip in
-                            ClipThumbnailView(clip: clip)
+                        let sorted = page.sortedClips
+                        ForEach(sorted) { clip in
+                            ClipThumbnailView(clip: clip, allClips: sorted)
                         }
                     }
                     .padding(.horizontal)
+                }
+
+                if let pickupState, pickupState.isActive, pickupState.sourcePage?.id != page.id {
+                    dropButton(pickupState: pickupState)
+                        .padding(.bottom, 4)
                 }
 
                 HStack(spacing: 12) {
@@ -72,5 +84,18 @@ struct AlbumPageView: View {
                 StitchPreviewView(album: album, page: page)
             }
         }
+    }
+
+    @ViewBuilder
+    private func dropButton(pickupState: ClipPickupState) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                pickupState.drop(to: page, context: modelContext)
+            }
+        } label: {
+            Label("Drop \(pickupState.pickedClips.count) clips here", systemImage: "arrow.down.doc")
+                .font(VintageFont.label(14))
+        }
+        .buttonStyle(RetroButtonStyle())
     }
 }
