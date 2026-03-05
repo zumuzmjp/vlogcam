@@ -9,9 +9,16 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     let recordingManager = ClipRecordingManager()
     let orientationManager = DeviceOrientationManager()
     let locationService = LocationService()
+    let filterProcessor = FilmFilterProcessor()
+    private let videoFilterService = VideoFilterService()
 
     @Published var selectedAlbum: VlogAlbum?
     @Published var showCreateAlbum = false
+
+    // Filter state
+    @Published var selectedFilter: FilmFilterType = .none
+    @Published var filterParams: FilmFilterParams = .defaultLight
+    @Published var isProcessingFilter = false
 
     // Forwarded from nested ObservableObjects (SwiftUI only observes direct @Published)
     @Published var isRecording = false
@@ -133,7 +140,25 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         // Update widget data
         updateWidgetData()
 
+        // Apply filter post-processing + generate thumbnail
+        let currentFilter = selectedFilter
+        let currentParams = filterParams
         Task {
+            if currentFilter != .none {
+                isProcessingFilter = true
+                do {
+                    _ = try await videoFilterService.applyFilter(
+                        to: outputURL,
+                        filter: currentFilter,
+                        params: currentParams
+                    )
+                    print("[CameraVM] Filter applied successfully")
+                } catch {
+                    print("[CameraVM] Filter failed: \(error)")
+                }
+                isProcessingFilter = false
+            }
+
             if let image = await ThumbnailGenerator.generateThumbnail(for: outputURL) {
                 _ = ThumbnailGenerator.saveThumbnail(image, fileName: thumbnailFileName)
             }
@@ -265,7 +290,13 @@ struct CameraScreen: View {
     private var cameraPreview: some View {
         ZStack {
             if viewModel.permissionGranted {
-                CameraPreviewView(session: viewModel.cameraService.captureSession) { devicePoint, viewLocation in
+                FilteredCameraPreviewView(
+                    session: viewModel.cameraService.captureSession,
+                    cameraService: viewModel.cameraService,
+                    filterProcessor: viewModel.filterProcessor,
+                    filterType: viewModel.selectedFilter,
+                    filterParams: viewModel.filterParams
+                ) { devicePoint, viewLocation in
                     viewModel.handleFocusTap(devicePoint: devicePoint, viewLocation: viewLocation)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -277,6 +308,16 @@ struct CameraScreen: View {
                     if let loc = viewModel.focusTapLocation {
                         FocusRingView(position: loc)
                             .allowsHitTesting(false)
+                    }
+                }
+                .overlay {
+                    if viewModel.isProcessingFilter {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.black.opacity(0.3))
+                            .overlay {
+                                ProgressView()
+                                    .tint(RetroTheme.cream)
+                            }
                     }
                 }
             } else {
@@ -355,8 +396,8 @@ struct CameraScreen: View {
 
     private var bottomBar: some View {
         HStack {
-            // Filter placeholder (left)
-            filterPlaceholder
+            // Filter picker (left)
+            filterPicker
 
             Spacer()
 
@@ -375,23 +416,52 @@ struct CameraScreen: View {
         }
     }
 
-    private var filterPlaceholder: some View {
+    private var filterPicker: some View {
         VStack(spacing: 2) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(RetroTheme.cameraBodyLight)
-                .frame(width: 56, height: 56)
-                .overlay(
-                    Text("FILTER")
-                        .font(VintageFont.caption(8))
-                        .foregroundStyle(RetroTheme.faded.opacity(0.5))
-                        .tracking(1)
+            Button {
+                // Cycle through filters
+                let allFilters = FilmFilterType.allCases
+                if let idx = allFilters.firstIndex(of: viewModel.selectedFilter) {
+                    let nextIdx = allFilters.index(after: idx)
+                    viewModel.selectedFilter = nextIdx < allFilters.endIndex ? allFilters[nextIdx] : allFilters[0]
+                }
+                // Set default params for the selected filter
+                switch viewModel.selectedFilter {
+                case .none: break
+                case .glow: viewModel.filterParams = .defaultGlow
+                case .light: viewModel.filterParams = .defaultLight
+                }
+                HapticService.impact(.light)
+            } label: {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(viewModel.selectedFilter != .none
+                          ? RetroTheme.accent.opacity(0.3)
+                          : RetroTheme.cameraBodyLight)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        VStack(spacing: 3) {
+                            Image(systemName: viewModel.selectedFilter != .none
+                                  ? "sparkles" : "camera.filters")
+                                .font(.system(size: 16))
+                                .foregroundStyle(viewModel.selectedFilter != .none
+                                                 ? RetroTheme.accent : RetroTheme.faded.opacity(0.5))
+                            Text(viewModel.selectedFilter.displayName)
+                                .font(VintageFont.caption(8))
+                                .foregroundStyle(viewModel.selectedFilter != .none
+                                                 ? RetroTheme.accent : RetroTheme.faded.opacity(0.5))
+                                .tracking(1)
+                        }
                         .rotationEffect(.degrees(viewModel.iconRotationAngle))
                         .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
-                )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(viewModel.selectedFilter != .none
+                                    ? RetroTheme.accent.opacity(0.5)
+                                    : RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
         }
     }
 

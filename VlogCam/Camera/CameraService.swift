@@ -4,8 +4,12 @@ import UIKit
 final class CameraService: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    private let videoDataOutput = AVCaptureVideoDataOutput()
+    private let videoDataQueue = DispatchQueue(label: "com.vlogcam.videodata", qos: .userInteractive)
     private var currentDevice: AVCaptureDevice?
     private var wideBaseFactor: CGFloat = 1.0
+
+    var onVideoFrame: ((CMSampleBuffer) -> Void)?
 
     @Published var isSessionRunning = false
     @Published var permissionGranted = false
@@ -82,6 +86,19 @@ final class CameraService: NSObject, ObservableObject {
             captureSession.addOutput(movieOutput)
             if let connection = movieOutput.connection(with: .video) {
                 connection.preferredVideoStabilizationMode = .off
+            }
+        }
+
+        // Video data output for filtered preview
+        videoDataOutput.setSampleBufferDelegate(self, queue: videoDataQueue)
+        videoDataOutput.alwaysDiscardsLateVideoFrames = true
+        videoDataOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ]
+        if captureSession.canAddOutput(videoDataOutput) {
+            captureSession.addOutput(videoDataOutput)
+            if let connection = videoDataOutput.connection(with: .video) {
+                connection.videoRotationAngle = 90
             }
         }
 
@@ -235,5 +252,13 @@ final class CameraService: NSObject, ObservableObject {
 
         // Reset to 1.0x on new camera
         setZoom(display: 1.0)
+    }
+}
+
+// MARK: - Video Data Output Delegate
+
+extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        onVideoFrame?(sampleBuffer)
     }
 }
