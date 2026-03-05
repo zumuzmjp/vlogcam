@@ -9,31 +9,29 @@ struct AlbumShelfView: View {
     @State private var albumToDelete: VlogAlbum?
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                RetroTheme.background.ignoresSafeArea()
-                if albums.isEmpty {
-                    emptyState
-                } else {
-                    albumGrid
+        ZStack {
+            RetroTheme.background.ignoresSafeArea()
+            if albums.isEmpty {
+                emptyState
+            } else {
+                albumGrid
+            }
+        }
+        .navigationTitle("Albums")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showCreateSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(RetroTheme.accent)
                 }
             }
-            .navigationTitle("Albums")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showCreateSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(RetroTheme.accent)
-                    }
-                }
-            }
-            .sheet(isPresented: $showCreateSheet) {
-                CreateAlbumSheet()
-            }
+        }
+        .sheet(isPresented: $showCreateSheet) {
+            CreateAlbumSheet()
         }
     }
 

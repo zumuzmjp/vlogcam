@@ -20,6 +20,9 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     }
     @Published var permissionGranted = false
     @Published var iconRotationAngle: Double = 0
+    @Published var displayZoomFactor: CGFloat = 1.0
+    @Published var focusTapLocation: CGPoint?
+    private var focusDismissTask: Task<Void, Never>?
 
     var modelContext: ModelContext?
 
@@ -36,6 +39,9 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         orientationManager.$iconRotationAngle
             .receive(on: RunLoop.main)
             .assign(to: &$iconRotationAngle)
+        cameraService.$displayZoomFactor
+            .receive(on: RunLoop.main)
+            .assign(to: &$displayZoomFactor)
     }
 
     func setup() async {
@@ -45,6 +51,20 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         recordingManager.delegate = self
         cameraService.startSession()
         orientationManager.startMonitoring()
+    }
+
+    func handleFocusTap(devicePoint: CGPoint, viewLocation: CGPoint) {
+        cameraService.focus(at: devicePoint)
+        focusTapLocation = viewLocation
+        HapticService.impact(.light)
+
+        focusDismissTask?.cancel()
+        focusDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 1_300_000_000)
+            if !Task.isCancelled {
+                focusTapLocation = nil
+            }
+        }
     }
 
     func handleRecordTap() {
@@ -141,113 +161,280 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
 
 struct CameraScreen: View {
     @Binding var shouldOpenRecord: Bool
+    var onShowAlbums: () -> Void = {}
     @Query(sort: \VlogAlbum.createdAt, order: .reverse) private var albums: [VlogAlbum]
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = CameraViewModel()
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            // Camera body background
+            RetroTheme.cameraBody.ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    HStack {
-                        AlbumSelectorView(albums: albums, selectedAlbum: $viewModel.selectedAlbum)
-                        Spacer()
-                        ClipCounterView(count: viewModel.selectedAlbum?.totalClipCount ?? 0)
-                    }
+            VStack(spacing: 0) {
+                // Top bar: title + clip count
+                topBar
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+                    .padding(.bottom, 6)
 
-                    ZStack {
-                        if viewModel.permissionGranted {
-                            CameraPreviewView(session: viewModel.cameraService.captureSession)
-                                .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
-                                .overlay {
-                                    RetroOverlayView(isRecording: viewModel.isRecording)
-                                    .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
-                                }
-                        } else {
-                            Rectangle().fill(RetroTheme.surfaceBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
-                                .overlay {
-                                    VStack(spacing: 12) {
-                                        Image(systemName: "camera.fill")
-                                            .font(.system(size: 40))
-                                            .foregroundStyle(RetroTheme.faded)
-                                        Text("Camera access required")
-                                            .font(VintageFont.body(14))
-                                            .foregroundStyle(RetroTheme.textSecondary)
-                                    }
-                                }
+                // Main: preview + right controls
+                HStack(spacing: 0) {
+                    // Camera preview
+                    cameraPreview
+                        .padding(.leading, 10)
+
+                    // Right control panel
+                    rightControlPanel
+                        .frame(width: 52)
+                        .padding(.trailing, 6)
+                }
+
+                Spacer(minLength: 8)
+
+                // Duration lever (above shutter)
+                DurationLeverView(duration: $viewModel.maxDuration)
+                    .padding(.bottom, 10)
+
+                // Bottom bar: filter | shutter | album
+                bottomBar
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+            }
+        }
+        .preferredColorScheme(.dark)
+        .statusBarHidden(true)
+        .navigationBarHidden(true)
+        .task {
+            viewModel.modelContext = modelContext
+            await viewModel.setup()
+        }
+        .onDisappear {
+            viewModel.cameraService.stopSession()
+            viewModel.orientationManager.stopMonitoring()
+        }
+        .onAppear {
+            viewModel.cameraService.startSession()
+            viewModel.orientationManager.startMonitoring()
+            if viewModel.selectedAlbum == nil {
+                viewModel.selectedAlbum = albums.first
+            }
+        }
+        .onChange(of: albums) { _, newAlbums in
+            if viewModel.selectedAlbum == nil {
+                viewModel.selectedAlbum = newAlbums.first
+            }
+        }
+        .onChange(of: viewModel.selectedAlbum) { _, _ in
+            viewModel.updateWidgetData()
+            WidgetCenter.shared.reloadTimelines(ofKind: "VlogCamLockScreenWidget")
+        }
+        .sheet(isPresented: $viewModel.showCreateAlbum) {
+            CreateAlbumSheet()
+        }
+    }
+
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack {
+            Text("3Sec Vlog")
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .foregroundStyle(RetroTheme.faded.opacity(0.6))
+                .tracking(1.5)
+
+            Spacer()
+
+            // Album selector (center-right)
+            AlbumSelectorView(albums: albums, selectedAlbum: $viewModel.selectedAlbum)
+
+            Spacer()
+
+            ClipCounterView(count: viewModel.selectedAlbum?.totalClipCount ?? 0)
+        }
+    }
+
+    // MARK: - Camera Preview
+
+    private var cameraPreview: some View {
+        ZStack {
+            if viewModel.permissionGranted {
+                CameraPreviewView(session: viewModel.cameraService.captureSession) { devicePoint, viewLocation in
+                    viewModel.handleFocusTap(devicePoint: devicePoint, viewLocation: viewLocation)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay {
+                    RetroOverlayView(isRecording: viewModel.isRecording)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .overlay {
+                    if let loc = viewModel.focusTapLocation {
+                        FocusRingView(position: loc)
+                            .allowsHitTesting(false)
+                    }
+                }
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.black)
+                    .overlay {
+                        VStack(spacing: 12) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 40))
+                                .foregroundStyle(RetroTheme.faded.opacity(0.4))
+                            Text("Camera access required")
+                                .font(VintageFont.caption(12))
+                                .foregroundStyle(RetroTheme.faded.opacity(0.4))
                         }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+            }
+        }
+        // Subtle inset border
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
+        )
+    }
 
-                    Spacer()
+    // MARK: - Right Control Panel
 
-                    HStack(spacing: 40) {
-                        Button {
-                            viewModel.cameraService.switchCamera()
-                        } label: {
-                            Image(systemName: "camera.rotate")
-                                .font(.system(size: 22))
-                                .foregroundStyle(RetroTheme.cream)
-                                .frame(width: 44, height: 44)
-                                .rotationEffect(.degrees(viewModel.iconRotationAngle))
-                        }
+    private var rightControlPanel: some View {
+        VStack(spacing: 10) {
+            // Flash placeholder
+            retroButton(icon: "bolt.fill") {}
 
-                        RecordButton(
-                            isRecording: viewModel.isRecording,
-                            progress: viewModel.recordingProgress
-                        ) {
-                            viewModel.handleRecordTap()
-                        }
+            // Camera switch
+            retroButton(icon: "camera.rotate") {
+                viewModel.cameraService.switchCamera()
+            }
 
-                        Menu {
-                            Button("1 second") { viewModel.maxDuration = 1.0 }
-                            Button("2 seconds") { viewModel.maxDuration = 2.0 }
-                            Button("3 seconds") { viewModel.maxDuration = 3.0 }
-                        } label: {
-                            Text(String(format: "%.0fs", viewModel.maxDuration))
-                                .font(VintageFont.label(14))
-                                .foregroundStyle(RetroTheme.cream)
-                                .frame(width: 44, height: 44)
-                                .rotationEffect(.degrees(viewModel.iconRotationAngle))
-                        }
-                    }
-                    .padding(.bottom, 24)
+            // Grid overlay placeholder
+            retroButton(icon: "grid") {}
+
+            Spacer()
+
+            // Zoom dial
+            ZoomDialView(
+                displayZoom: $viewModel.displayZoomFactor,
+                minZoom: viewModel.cameraService.minDisplayZoom,
+                maxZoom: viewModel.cameraService.maxDisplayZoom
+            ) { newZoom in
+                viewModel.cameraService.setZoom(display: newZoom)
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func retroButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(RetroTheme.cream.opacity(0.7))
+                .frame(width: 38, height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(RetroTheme.cameraBodyLight)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(RetroTheme.metalDark.opacity(0.5), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Bottom Bar
+
+    private var bottomBar: some View {
+        HStack {
+            // Filter placeholder (left)
+            filterPlaceholder
+
+            Spacer()
+
+            // Shutter button (center)
+            RetroShutterButton(
+                isRecording: viewModel.isRecording,
+                progress: viewModel.recordingProgress
+            ) {
+                viewModel.handleRecordTap()
+            }
+
+            Spacer()
+
+            // Album thumbnail (right)
+            albumThumbnail
+        }
+    }
+
+    private var filterPlaceholder: some View {
+        VStack(spacing: 2) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(RetroTheme.cameraBodyLight)
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Text("FILTER")
+                        .font(VintageFont.caption(8))
+                        .foregroundStyle(RetroTheme.faded.opacity(0.5))
+                        .tracking(1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
+                )
+        }
+    }
+
+    private var albumThumbnail: some View {
+        Button {
+            onShowAlbums()
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(RetroTheme.cameraBodyLight)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(RetroTheme.metalDark.opacity(0.5), lineWidth: 1)
+                    )
+
+                if let album = viewModel.selectedAlbum,
+                   let lastClip = album.sortedPages.last?.sortedClips.last,
+                   let thumbName = lastClip.thumbnailFileName {
+                    let thumbURL = URL.thumbnailsDirectory.appending(component: thumbName)
+                    AsyncThumbnailImage(url: thumbURL)
+                        .frame(width: 50, height: 50)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                } else {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 18))
+                        .foregroundStyle(RetroTheme.faded.opacity(0.4))
                 }
             }
-            .navigationTitle("VlogCam")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .task {
-                viewModel.modelContext = modelContext
-                await viewModel.setup()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Async Thumbnail
+
+private struct AsyncThumbnailImage: View {
+    let url: URL
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Rectangle()
+                    .fill(RetroTheme.cameraBodyLight)
             }
-            .onDisappear {
-                viewModel.cameraService.stopSession()
-                viewModel.orientationManager.stopMonitoring()
-            }
-            .onAppear {
-                if viewModel.selectedAlbum == nil {
-                    viewModel.selectedAlbum = albums.first
-                }
-            }
-            .onChange(of: albums) { _, newAlbums in
-                if viewModel.selectedAlbum == nil {
-                    viewModel.selectedAlbum = newAlbums.first
-                }
-            }
-            .onChange(of: viewModel.selectedAlbum) { _, _ in
-                viewModel.updateWidgetData()
-                WidgetCenter.shared.reloadTimelines(ofKind: "VlogCamLockScreenWidget")
-            }
-            .sheet(isPresented: $viewModel.showCreateAlbum) {
-                CreateAlbumSheet()
-            }
+        }
+        .task {
+            image = UIImage(contentsOfFile: url.path())
         }
     }
 }

@@ -33,6 +33,13 @@ enum RetroTheme {
         endPoint: .bottom
     )
 
+    // Camera body
+    static let cameraBody = Color(red: 0.12, green: 0.11, blue: 0.10)
+    static let cameraBodyLight = Color(red: 0.18, green: 0.16, blue: 0.14)
+    static let metalDark = Color(red: 0.25, green: 0.24, blue: 0.22)
+    static let metalLight = Color(red: 0.55, green: 0.53, blue: 0.50)
+    static let metalHighlight = Color(red: 0.75, green: 0.73, blue: 0.70)
+
     // Shadows
     static let cardShadow: Color = .black.opacity(0.4)
     static let embossShadow: Color = .white.opacity(0.15)
