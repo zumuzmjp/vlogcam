@@ -8,6 +8,8 @@ final class VideoClip {
     var recordedAt: Date
     var sortOrder: Int
     var thumbnailFileName: String?
+    var latitude: Double?
+    var longitude: Double?
     var page: AlbumPage?
 
     init(fileName: String, duration: Double, recordedAt: Date = .now, sortOrder: Int) {

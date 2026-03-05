@@ -8,6 +8,7 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     let cameraService = CameraService()
     let recordingManager = ClipRecordingManager()
     let orientationManager = DeviceOrientationManager()
+    let locationService = LocationService()
 
     @Published var selectedAlbum: VlogAlbum?
     @Published var showCreateAlbum = false
@@ -51,6 +52,8 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         recordingManager.delegate = self
         cameraService.startSession()
         orientationManager.startMonitoring()
+        locationService.requestPermission()
+        locationService.startUpdates()
     }
 
     func handleFocusTap(devicePoint: CGPoint, viewLocation: CGPoint) {
@@ -119,6 +122,10 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
             sortOrder: page.clips.count
         )
         clip.thumbnailFileName = thumbnailFileName
+        if let location = locationService.lastLocation {
+            clip.latitude = location.coordinate.latitude
+            clip.longitude = location.coordinate.longitude
+        }
         clip.page = page
         modelContext.insert(clip)
         try? modelContext.save()
@@ -212,6 +219,7 @@ struct CameraScreen: View {
         .onDisappear {
             viewModel.cameraService.stopSession()
             viewModel.orientationManager.stopMonitoring()
+            viewModel.locationService.stopUpdates()
         }
         .onAppear {
             viewModel.cameraService.startSession()
@@ -239,18 +247,16 @@ struct CameraScreen: View {
     private var topBar: some View {
         HStack {
             Text("3Sec Vlog")
-                .font(.system(size: 14, weight: .medium, design: .serif))
+                .font(VintageFont.lcd(14))
                 .foregroundStyle(RetroTheme.faded.opacity(0.6))
-                .tracking(1.5)
 
             Spacer()
 
-            // Album selector (center-right)
-            AlbumSelectorView(albums: albums, selectedAlbum: $viewModel.selectedAlbum)
-
-            Spacer()
-
-            ClipCounterView(count: viewModel.selectedAlbum?.totalClipCount ?? 0)
+            AlbumSelectorView(
+                albums: albums,
+                selectedAlbum: $viewModel.selectedAlbum,
+                clipCount: viewModel.selectedAlbum?.totalClipCount ?? 0
+            )
         }
     }
 
@@ -329,6 +335,8 @@ struct CameraScreen: View {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(RetroTheme.cream.opacity(0.7))
+                .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
                 .frame(width: 38, height: 34)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
@@ -377,6 +385,8 @@ struct CameraScreen: View {
                         .font(VintageFont.caption(8))
                         .foregroundStyle(RetroTheme.faded.opacity(0.5))
                         .tracking(1)
+                        .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
@@ -405,10 +415,14 @@ struct CameraScreen: View {
                     AsyncThumbnailImage(url: thumbURL)
                         .frame(width: 50, height: 50)
                         .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
                 } else {
                     Image(systemName: "photo.on.rectangle")
                         .font(.system(size: 18))
                         .foregroundStyle(RetroTheme.faded.opacity(0.4))
+                        .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
                 }
             }
         }

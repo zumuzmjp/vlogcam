@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>DSEG14Classic-Regular.ttf</string>
+		<string>DSEG14Classic-Bold.ttf</string>
+		<string>DSEG14Classic-Light.ttf</string>
+		<string>DSEG7Classic-Regular.ttf</string>
+		<string>DSEG7Classic-Bold.ttf</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>VlogCam records your location with each clip so you can remember where you filmed.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>VlogCam needs camera access to record vlog clips.</string>
 	<key>NSMicrophoneUsageDescription</key>

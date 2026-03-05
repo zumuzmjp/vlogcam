@@ -29,7 +29,7 @@ struct ZoomDialView: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(zoomLabel)
-                .font(VintageFont.caption(10))
+                .font(VintageFont.lcd(10))
                 .foregroundStyle(RetroTheme.cream.opacity(0.7))
 
             GeometryReader { geo in
@@ -58,7 +58,7 @@ struct ZoomDialView: View {
                         let n = normalizedForZoom(zoom)
                         let yPos = available * (1 - n) + knobSize / 2
                         Text(label)
-                            .font(VintageFont.caption(7))
+                            .font(VintageFont.lcd(7))
                             .foregroundStyle(RetroTheme.faded.opacity(0.4))
                             .position(x: geo.size.width / 2 + 18, y: yPos)
                     }

@@ -16,4 +16,17 @@ enum VintageFont {
     static func label(_ size: CGFloat = 14) -> Font {
         .system(size: size, weight: .semibold, design: .rounded)
     }
+
+    // DSEG LCD segment fonts
+    static func lcd(_ size: CGFloat = 14) -> Font {
+        .custom("DSEG14Classic-Light", size: size)
+    }
+
+    static func lcdBold(_ size: CGFloat = 14) -> Font {
+        .custom("DSEG14Classic-Bold", size: size)
+    }
+
+    static func lcd7(_ size: CGFloat = 20) -> Font {
+        .custom("DSEG7Classic-Bold", size: size)
+    }
 }

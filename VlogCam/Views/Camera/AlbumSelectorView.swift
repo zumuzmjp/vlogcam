@@ -3,6 +3,7 @@ import SwiftUI
 struct AlbumSelectorView: View {
     let albums: [VlogAlbum]
     @Binding var selectedAlbum: VlogAlbum?
+    var clipCount: Int = 0
     @State private var showPicker = false
 
     var body: some View {
@@ -17,6 +18,16 @@ struct AlbumSelectorView: View {
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10))
+
+                // Clip count badge
+                HStack(spacing: 3) {
+                    Image(systemName: "film.stack")
+                        .font(.system(size: 10))
+                    Text("\(clipCount)")
+                        .font(VintageFont.caption())
+                }
+                .foregroundStyle(RetroTheme.accent)
+                .padding(.leading, 4)
             }
             .foregroundStyle(RetroTheme.cream)
             .padding(.horizontal, 12)

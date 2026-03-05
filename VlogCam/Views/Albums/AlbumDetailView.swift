@@ -5,6 +5,7 @@ struct AlbumDetailView: View {
     @State private var currentPageIndex = 0
     @State private var showEdit = false
     @State private var showStitchAll = false
+    @State private var showMap = false
     @State private var pickupState = ClipPickupState()
 
     var body: some View {
@@ -39,6 +40,12 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if album.totalClipCount > 0 {
+                    NavigationLink {
+                        AlbumMapView(album: album)
+                    } label: {
+                        Image(systemName: "map")
+                            .foregroundStyle(RetroTheme.accent)
+                    }
                     Button {
                         showStitchAll = true
                     } label: {
