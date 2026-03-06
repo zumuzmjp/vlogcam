@@ -390,7 +390,8 @@ struct CameraScreen: View {
             ZoomDialView(
                 displayZoom: $viewModel.displayZoomFactor,
                 minZoom: viewModel.cameraService.minDisplayZoom,
-                maxZoom: viewModel.cameraService.maxDisplayZoom
+                maxZoom: viewModel.cameraService.maxDisplayZoom,
+                lensSwitchPoints: viewModel.cameraService.lensSwitchDisplayZooms
             ) { newZoom in
                 viewModel.cameraService.setZoom(display: newZoom)
             }

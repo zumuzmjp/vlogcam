@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioToolbox
 import UIKit
 
 final class CameraService: NSObject, ObservableObject {
@@ -28,6 +29,12 @@ final class CameraService: NSObject, ObservableObject {
 
     var movieFileOutput: AVCaptureMovieFileOutput { movieOutput }
 
+    var lensSwitchDisplayZooms: [CGFloat] {
+        guard let device = currentDevice else { return [1.0] }
+        let switchOvers = device.virtualDeviceSwitchOverVideoZoomFactors
+        return switchOvers.map { CGFloat(truncating: $0) / wideBaseFactor }
+    }
+
 
     func checkPermissions() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -46,7 +53,16 @@ final class CameraService: NSObject, ObservableObject {
 
     func setupSession() {
         guard permissionGranted else { return }
+
+        // Allow haptics while audio capture is active — must be set BEFORE session starts
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
+            try AVAudioSession.sharedInstance().setAllowHapticsAndSystemSoundsDuringRecording(true)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {}
+
         captureSession.beginConfiguration()
+        captureSession.automaticallyConfiguresApplicationAudioSession = false
         captureSession.sessionPreset = .inputPriority
 
         guard let videoDevice = resolveBackCamera() else {

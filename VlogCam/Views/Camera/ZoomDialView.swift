@@ -4,10 +4,12 @@ struct ZoomDialView: View {
     @Binding var displayZoom: CGFloat
     let minZoom: CGFloat
     let maxZoom: CGFloat
+    var lensSwitchPoints: [CGFloat] = [1.0, 2.0]
     let onZoomChanged: (CGFloat) -> Void
 
     private let trackHeight: CGFloat = 130
     private let knobSize: CGFloat = 24
+    @State private var prevDragZoom: CGFloat? = nil
 
     // Logarithmic scale: 0.5→5.0 mapped to 0→1
     private var normalizedValue: CGFloat {
@@ -93,7 +95,19 @@ struct ZoomDialView: View {
                             let ratio = 1 - ((value.location.y - knobSize / 2) / available)
                             let clamped = max(0, min(1, ratio))
                             let newZoom = zoomForNormalized(clamped)
+                            if let prev = prevDragZoom {
+                                for pt in lensSwitchPoints {
+                                    if (prev < pt && newZoom >= pt) || (prev >= pt && newZoom < pt) {
+                                        HapticService.peek()
+                                        break
+                                    }
+                                }
+                            }
+                            prevDragZoom = newZoom
                             onZoomChanged(newZoom)
+                        }
+                        .onEnded { _ in
+                            prevDragZoom = nil
                         }
                 )
             }
