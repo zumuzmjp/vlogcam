@@ -19,6 +19,7 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     @Published var selectedFilter: FilmFilterType = .none
     @Published var filterParams: FilmFilterParams = .defaultLight
     @Published var isProcessingFilter = false
+    @Published var showFilterSelection = false
 
     // Forwarded from nested ObservableObjects (SwiftUI only observes direct @Published)
     @Published var isRecording = false
@@ -206,6 +207,7 @@ struct CameraScreen: View {
             VStack(spacing: 0) {
                 // Top bar: title + clip count
                 topBar
+                    .opacity(viewModel.showFilterSelection ? 0.3 : 1)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 6)
@@ -233,6 +235,9 @@ struct CameraScreen: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
             }
+
+            // Filter selection overlay
+            filterSelectionOverlay
         }
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
@@ -264,6 +269,28 @@ struct CameraScreen: View {
         }
         .sheet(isPresented: $viewModel.showCreateAlbum) {
             CreateAlbumSheet()
+        }
+    }
+
+    // MARK: - Filter Selection Overlay
+
+    @ViewBuilder
+    private var filterSelectionOverlay: some View {
+        if viewModel.showFilterSelection {
+            ZStack {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        viewModel.showFilterSelection = false
+                    }
+
+                FilterSelectionView(
+                    viewModel: viewModel,
+                    isPresented: $viewModel.showFilterSelection
+                )
+                .transition(.move(edge: .bottom))
+            }
+            .animation(.easeInOut(duration: 0.3), value: viewModel.showFilterSelection)
         }
     }
 
@@ -417,51 +444,64 @@ struct CameraScreen: View {
     }
 
     private var filterPicker: some View {
-        VStack(spacing: 2) {
-            Button {
-                // Cycle through filters
-                let allFilters = FilmFilterType.allCases
-                if let idx = allFilters.firstIndex(of: viewModel.selectedFilter) {
-                    let nextIdx = allFilters.index(after: idx)
-                    viewModel.selectedFilter = nextIdx < allFilters.endIndex ? allFilters[nextIdx] : allFilters[0]
+        Button {
+            viewModel.showFilterSelection = true
+            HapticService.impact(.light)
+        } label: {
+            VStack(spacing: 3) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(filterCanisterColor.gradient)
+                        .frame(width: 56, height: 56)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(viewModel.selectedFilter != .none
+                                        ? RetroTheme.accent.opacity(0.5)
+                                        : RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+
+                    VStack(spacing: 2) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(.white.opacity(0.15))
+                            .frame(width: 44, height: 4)
+
+                        Text(filterCanisterCode)
+                            .font(VintageFont.caption(14))
+                            .foregroundStyle(.white)
+                            .fontWeight(.bold)
+
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(.white.opacity(0.1))
+                            .frame(width: 44, height: 3)
+                    }
+                    .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
                 }
-                // Set default params for the selected filter
-                switch viewModel.selectedFilter {
-                case .none: break
-                case .glow: viewModel.filterParams = .defaultGlow
-                case .light: viewModel.filterParams = .defaultLight
-                }
-                HapticService.impact(.light)
-            } label: {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(viewModel.selectedFilter != .none
-                          ? RetroTheme.accent.opacity(0.3)
-                          : RetroTheme.cameraBodyLight)
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        VStack(spacing: 3) {
-                            Image(systemName: viewModel.selectedFilter != .none
-                                  ? "sparkles" : "camera.filters")
-                                .font(.system(size: 16))
-                                .foregroundStyle(viewModel.selectedFilter != .none
-                                                 ? RetroTheme.accent : RetroTheme.faded.opacity(0.5))
-                            Text(viewModel.selectedFilter.displayName)
-                                .font(VintageFont.caption(8))
-                                .foregroundStyle(viewModel.selectedFilter != .none
-                                                 ? RetroTheme.accent : RetroTheme.faded.opacity(0.5))
-                                .tracking(1)
-                        }
-                        .rotationEffect(.degrees(viewModel.iconRotationAngle))
-                        .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(viewModel.selectedFilter != .none
-                                    ? RetroTheme.accent.opacity(0.5)
-                                    : RetroTheme.metalDark.opacity(0.4), lineWidth: 1)
-                    )
+
+                Text(viewModel.selectedFilter.displayName)
+                    .font(VintageFont.caption(8))
+                    .foregroundStyle(viewModel.selectedFilter != .none
+                                     ? RetroTheme.accent : RetroTheme.faded.opacity(0.5))
+                    .tracking(1)
             }
-            .buttonStyle(.plain)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var filterCanisterColor: Color {
+        switch viewModel.selectedFilter {
+        case .none: return RetroTheme.cameraBodyLight
+        case .glow: return Color(red: 0.75, green: 0.55, blue: 0.15)
+        case .light: return Color(red: 0.35, green: 0.50, blue: 0.65)
+        }
+    }
+
+    private var filterCanisterCode: String {
+        switch viewModel.selectedFilter {
+        case .none: return "STD"
+        case .glow: return "GL"
+        case .light: return "LT"
         }
     }
 
