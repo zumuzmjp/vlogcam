@@ -2,6 +2,31 @@ import AVFoundation
 import AudioToolbox
 import UIKit
 
+enum CameraAspectRatio: String, Equatable {
+    case ratio4_3 = "4:3"
+    case ratio16_9 = "16:9"
+
+    var label: String { rawValue }
+
+    /// Portrait preview aspect ratio (width / height)
+    var previewRatio: CGFloat {
+        switch self {
+        case .ratio4_3: return 3.0 / 4.0
+        case .ratio16_9: return 9.0 / 16.0
+        }
+    }
+
+    /// Minimum landscape resolution for format selection
+    var minWidth: Int32 { 1920 }
+
+    func matches(width: Int32, height: Int32) -> Bool {
+        switch self {
+        case .ratio4_3: return width * 3 == height * 4
+        case .ratio16_9: return width * 9 == height * 16
+        }
+    }
+}
+
 final class CameraService: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
@@ -16,6 +41,10 @@ final class CameraService: NSObject, ObservableObject {
     @Published var permissionGranted = false
     @Published var setupError: String?
     @Published var displayZoomFactor: CGFloat = 1.0
+    @Published var aspectRatio: CameraAspectRatio = {
+        let saved = UserDefaults.standard.string(forKey: "cameraAspectRatio") ?? "16:9"
+        return CameraAspectRatio(rawValue: saved) ?? .ratio16_9
+    }()
 
     var minDisplayZoom: CGFloat {
         let deviceMin = currentDevice?.minAvailableVideoZoomFactor ?? 1.0
@@ -125,16 +154,15 @@ final class CameraService: NSObject, ObservableObject {
     }
 
     private func selectBestFormat(for device: AVCaptureDevice) {
-        // Find 1080p 30fps format with max zoom support
-        let targetWidth: Int32 = 1920
-        let targetHeight: Int32 = 1080
         var bestFormat: AVCaptureDevice.Format?
         var bestZoom: CGFloat = 0
 
         for format in device.formats {
             let desc = format.formatDescription
             let dims = CMVideoFormatDescriptionGetDimensions(desc)
-            guard dims.width >= targetWidth, dims.height >= targetHeight else { continue }
+
+            guard aspectRatio.matches(width: dims.width, height: dims.height) else { continue }
+            guard dims.width >= aspectRatio.minWidth else { continue }
 
             let ranges = format.videoSupportedFrameRateRanges
             let supports30fps = ranges.contains { $0.minFrameRate <= 30 && $0.maxFrameRate >= 30 }
@@ -155,6 +183,16 @@ final class CameraService: NSObject, ObservableObject {
                 device.unlockForConfiguration()
             } catch {}
         }
+    }
+
+    func toggleAspectRatio() {
+        aspectRatio = (aspectRatio == .ratio16_9) ? .ratio4_3 : .ratio16_9
+        UserDefaults.standard.set(aspectRatio.rawValue, forKey: "cameraAspectRatio")
+        guard let device = currentDevice else { return }
+        captureSession.beginConfiguration()
+        selectBestFormat(for: device)
+        captureSession.commitConfiguration()
+        setZoom(display: displayZoomFactor)
     }
 
     private func resolveBackCamera() -> AVCaptureDevice? {

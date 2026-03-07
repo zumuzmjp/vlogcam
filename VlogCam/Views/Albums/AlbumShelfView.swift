@@ -53,25 +53,30 @@ struct AlbumShelfView: View {
         }
     }
 
+    private var albumRows: [[VlogAlbum]] {
+        stride(from: 0, to: albums.count, by: 3).map {
+            Array(albums[$0..<min($0 + 3, albums.count)])
+        }
+    }
+
     private var albumGrid: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
-                ForEach(albums) { album in
-                    NavigationLink {
-                        AlbumDetailView(album: album)
-                    } label: {
-                        AlbumBookCover(album: album)
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            albumToDelete = album
-                        } label: {
-                            Label("Delete Album", systemImage: "trash")
+            LazyVStack(spacing: 8) {
+                ForEach(Array(albumRows.enumerated()), id: \.offset) { _, row in
+                    AlbumFilmRow(albums: row)
+                        .contextMenu {
+                            ForEach(row) { album in
+                                Button(role: .destructive) {
+                                    albumToDelete = album
+                                } label: {
+                                    Label("Delete \(album.title)", systemImage: "trash")
+                                }
+                            }
                         }
-                    }
                 }
             }
-            .padding()
+            .padding(.horizontal, 4)
+            .padding(.vertical, 8)
         }
         .confirmationDialog("Delete Album?", isPresented: .init(
             get: { albumToDelete != nil },

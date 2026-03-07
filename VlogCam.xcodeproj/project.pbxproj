@@ -40,14 +40,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A100000000000000000000E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		A100000000000000000000E0 /* Exceptions for "VlogCam" folder in "VlogCam" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = A10000000000000000000040 /* VlogCam */;
 		};
-		A100000000000000000000E1 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		A100000000000000000000E1 /* Exceptions for "VlogCamWidget" folder in "VlogCamWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -60,7 +60,7 @@
 		A10000000000000000000010 /* VlogCam */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A100000000000000000000E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				A100000000000000000000E0 /* Exceptions for "VlogCam" folder in "VlogCam" target */,
 			);
 			path = VlogCam;
 			sourceTree = "<group>";
@@ -68,7 +68,7 @@
 		A10000000000000000000F05 /* VlogCamWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A100000000000000000000E1 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				A100000000000000000000E1 /* Exceptions for "VlogCamWidget" folder in "VlogCamWidgetExtension" target */,
 			);
 			path = VlogCamWidget;
 			sourceTree = "<group>";
@@ -368,7 +368,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VlogCam/VlogCam.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HK84M62GX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -383,7 +383,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = zumzumjp.VlogCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -401,7 +401,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VlogCam/VlogCam.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HK84M62GX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -416,7 +416,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = zumzumjp.VlogCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -433,7 +433,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VlogCamWidget/VlogCamWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HK84M62GX6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = VlogCamWidget/Info.plist;
@@ -444,7 +444,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = zumzumjp.VlogCam.VlogCamWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -462,7 +462,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VlogCamWidget/VlogCamWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = HK84M62GX6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = VlogCamWidget/Info.plist;
@@ -473,7 +473,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = zumzumjp.VlogCam.VlogCamWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -488,20 +488,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A10000000000000000000090 /* Build configuration list for PBXProject "VlogCam" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A100000000000000000000A0 /* Debug */,
-				A100000000000000000000B0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A10000000000000000000070 /* Build configuration list for PBXNativeTarget "VlogCam" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A100000000000000000000C0 /* Debug */,
 				A100000000000000000000D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000090 /* Build configuration list for PBXProject "VlogCam" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000000A0 /* Debug */,
+				A100000000000000000000B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -516,7 +516,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = A10000000000000000000080 /* Project object */;
 }

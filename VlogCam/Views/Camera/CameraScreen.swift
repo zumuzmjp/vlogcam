@@ -24,12 +24,16 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
     // Forwarded from nested ObservableObjects (SwiftUI only observes direct @Published)
     @Published var isRecording = false
     @Published var recordingProgress: Double = 0
-    @Published var maxDuration: Double = 3.0 {
-        didSet { recordingManager.maxDuration = maxDuration }
+    @Published var maxDuration: Double = UserDefaults.standard.object(forKey: "maxDuration") as? Double ?? 3.0 {
+        didSet {
+            recordingManager.maxDuration = maxDuration
+            UserDefaults.standard.set(maxDuration, forKey: "maxDuration")
+        }
     }
     @Published var permissionGranted = false
     @Published var iconRotationAngle: Double = 0
     @Published var displayZoomFactor: CGFloat = 1.0
+    @Published var aspectRatio: CameraAspectRatio = .ratio16_9
     @Published var focusTapLocation: CGPoint?
     private var focusDismissTask: Task<Void, Never>?
 
@@ -51,6 +55,9 @@ final class CameraViewModel: ObservableObject, ClipRecordingDelegate {
         cameraService.$displayZoomFactor
             .receive(on: RunLoop.main)
             .assign(to: &$displayZoomFactor)
+        cameraService.$aspectRatio
+            .receive(on: RunLoop.main)
+            .assign(to: &$aspectRatio)
     }
 
     func setup() async {
@@ -255,21 +262,32 @@ struct CameraScreen: View {
             viewModel.cameraService.startSession()
             viewModel.orientationManager.startMonitoring()
             if viewModel.selectedAlbum == nil {
-                viewModel.selectedAlbum = albums.first
+                viewModel.selectedAlbum = restoreSelectedAlbum(from: albums) ?? albums.first
             }
         }
         .onChange(of: albums) { _, newAlbums in
             if viewModel.selectedAlbum == nil {
-                viewModel.selectedAlbum = newAlbums.first
+                viewModel.selectedAlbum = restoreSelectedAlbum(from: newAlbums) ?? newAlbums.first
             }
         }
-        .onChange(of: viewModel.selectedAlbum) { _, _ in
+        .onChange(of: viewModel.selectedAlbum) { _, newAlbum in
             viewModel.updateWidgetData()
             WidgetCenter.shared.reloadTimelines(ofKind: "VlogCamLockScreenWidget")
+            if let album = newAlbum {
+                UserDefaults.standard.set(album.createdAt.timeIntervalSince1970, forKey: "selectedAlbumCreatedAt")
+            }
         }
         .sheet(isPresented: $viewModel.showCreateAlbum) {
             CreateAlbumSheet()
         }
+    }
+
+    // MARK: - Album Persistence
+
+    private func restoreSelectedAlbum(from albums: [VlogAlbum]) -> VlogAlbum? {
+        let saved = UserDefaults.standard.double(forKey: "selectedAlbumCreatedAt")
+        guard saved != 0 else { return nil }
+        return albums.first { abs($0.createdAt.timeIntervalSince1970 - saved) < 0.001 }
     }
 
     // MARK: - Filter Selection Overlay
@@ -362,6 +380,8 @@ struct CameraScreen: View {
                     }
             }
         }
+        .aspectRatio(viewModel.aspectRatio.previewRatio, contentMode: .fit)
+        .animation(.easeInOut(duration: 0.25), value: viewModel.aspectRatio)
         // Subtle inset border
         .overlay(
             RoundedRectangle(cornerRadius: 6)
@@ -381,8 +401,8 @@ struct CameraScreen: View {
                 viewModel.cameraService.switchCamera()
             }
 
-            // Grid overlay placeholder
-            retroButton(icon: "grid") {}
+            // Aspect ratio toggle
+            aspectRatioButton
 
             Spacer()
 
@@ -397,6 +417,30 @@ struct CameraScreen: View {
             }
         }
         .padding(.vertical, 10)
+    }
+
+    private var aspectRatioButton: some View {
+        Button {
+            viewModel.cameraService.toggleAspectRatio()
+            HapticService.impact(.light)
+        } label: {
+            Text(viewModel.aspectRatio.label)
+                .font(VintageFont.lcd(10))
+                .foregroundStyle(RetroTheme.cream.opacity(0.7))
+                .rotationEffect(.degrees(viewModel.iconRotationAngle))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.iconRotationAngle)
+                .frame(width: 38, height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(RetroTheme.cameraBodyLight)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(RetroTheme.metalDark.opacity(0.5), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func retroButton(icon: String, action: @escaping () -> Void) -> some View {

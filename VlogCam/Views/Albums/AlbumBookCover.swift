@@ -1,34 +1,105 @@
 import SwiftUI
 
-struct AlbumBookCover: View {
-    let album: VlogAlbum
+private let stripBorder: CGFloat = 8
+
+struct AlbumFilmRow: View {
+    let albums: [VlogAlbum]
 
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(RetroTheme.leatherGradient)
-                    .frame(height: 180)
-
-                VStack(spacing: 4) {
-                    Image(systemName: "video.fill")
-                        .font(.title)
-                        .foregroundStyle(RetroTheme.cream.opacity(0.8))
-                    Text("\(album.totalClipCount)")
-                        .font(VintageFont.title(28))
-                        .foregroundStyle(RetroTheme.cream)
-                    Text("clips")
-                        .font(VintageFont.caption())
-                        .foregroundStyle(RetroTheme.cream.opacity(0.7))
+        VStack(spacing: 0) {
+            // Top label row
+            HStack(spacing: stripBorder) {
+                ForEach(albums) { album in
+                    Text(album.title)
+                        .font(.system(size: 7, weight: .medium))
+                        .foregroundStyle(RetroTheme.cream.opacity(0.6))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+                if albums.count < 3 {
+                    ForEach(0..<(3 - albums.count), id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
                 }
             }
-            .rotation3DEffect(.degrees(5), axis: (x: 0, y: 1, z: 0))
-            .shadow(color: RetroTheme.cardShadow, radius: 8, x: 4, y: 4)
+            .frame(height: stripBorder)
+            .padding(.horizontal, stripBorder)
 
-            Text(album.title)
-                .font(VintageFont.label())
-                .foregroundStyle(RetroTheme.textPrimary)
-                .lineLimit(1)
+            // Thumbnail row
+            HStack(spacing: stripBorder) {
+                ForEach(albums) { album in
+                    NavigationLink {
+                        AlbumDetailView(album: album)
+                    } label: {
+                        AlbumThumbnail(album: album)
+                    }
+                }
+                if albums.count < 3 {
+                    ForEach(0..<(3 - albums.count), id: \.self) { _ in
+                        Color.clear.aspectRatio(1, contentMode: .fit)
+                    }
+                }
+            }
+            .padding(.horizontal, stripBorder)
+
+            // Bottom label row
+            HStack(spacing: stripBorder) {
+                ForEach(albums) { album in
+                    Text("\(dateLabel(album.createdAt)) \u{25B8}")
+                        .font(.system(size: 7, weight: .medium))
+                        .foregroundStyle(RetroTheme.faded)
+                        .frame(maxWidth: .infinity)
+                }
+                if albums.count < 3 {
+                    ForEach(0..<(3 - albums.count), id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            .frame(height: stripBorder)
+            .padding(.horizontal, stripBorder)
+        }
+        .background(Color(white: 0.15))
+    }
+
+    private func dateLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMdd"
+        return formatter.string(from: date)
+    }
+}
+
+private struct AlbumThumbnail: View {
+    let album: VlogAlbum
+
+    private var latestClip: VideoClip? {
+        album.sortedPages.last?.sortedClips.last
+    }
+
+    var body: some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                thumbnailContent
+            }
+            .clipShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var thumbnailContent: some View {
+        if let clip = latestClip,
+           let url = clip.thumbnailURL,
+           let uiImage = UIImage(contentsOfFile: url.path()) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            ZStack {
+                RetroTheme.surfaceBackground
+                Image(systemName: "video.fill")
+                    .font(.title2)
+                    .foregroundStyle(RetroTheme.faded)
+            }
         }
     }
 }
