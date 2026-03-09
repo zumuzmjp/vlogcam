@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AlbumDetailView: View {
     let album: VlogAlbum
-    @State private var currentPageIndex = 0
     @State private var showEdit = false
     @State private var showStitchAll = false
     @State private var showMap = false
@@ -24,7 +23,15 @@ struct AlbumDetailView: View {
                         .foregroundStyle(RetroTheme.faded)
                 }
             } else {
-                PageCurlContainer(pages: album.sortedPages, currentIndex: $currentPageIndex, pickupState: pickupState)
+                ScrollView {
+                    LazyVStack(spacing: 20) {
+                        ForEach(album.sortedPages) { page in
+                            FilmStripView(page: page)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                }
+                .environment(pickupState)
             }
         }
         .overlay(alignment: .top) {
