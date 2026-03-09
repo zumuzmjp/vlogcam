@@ -1,6 +1,37 @@
 import AVFoundation
 import UIKit
 
+enum VideoOutputFormat: String, CaseIterable, Identifiable {
+    case portrait16_9 = "9:16"
+    case portrait4_3 = "3:4"
+    case landscape16_9 = "16:9"
+    case landscape4_3 = "4:3"
+
+    var id: String { rawValue }
+
+    var label: String { rawValue }
+
+    var renderSize: CGSize {
+        switch self {
+        case .portrait16_9:  return CGSize(width: 1080, height: 1920)
+        case .portrait4_3:   return CGSize(width: 1080, height: 1440)
+        case .landscape16_9: return CGSize(width: 1920, height: 1080)
+        case .landscape4_3:  return CGSize(width: 1440, height: 1080)
+        }
+    }
+
+    var isPortrait: Bool {
+        switch self {
+        case .portrait16_9, .portrait4_3: return true
+        case .landscape16_9, .landscape4_3: return false
+        }
+    }
+
+    var icon: String {
+        isPortrait ? "rectangle.portrait" : "rectangle"
+    }
+}
+
 final class VideoStitchingService {
     enum StitchError: Error, LocalizedError {
         case noClips
@@ -16,9 +47,7 @@ final class VideoStitchingService {
         }
     }
 
-    private let renderSize = CGSize(width: 1080, height: 1920)
-
-    func stitch(clips: [VideoClip], cacheKey: String? = nil, progress: @escaping (Float) -> Void) async throws -> URL {
+    func stitch(clips: [VideoClip], outputFormat: VideoOutputFormat = .portrait16_9, cacheKey: String? = nil, progress: @escaping (Float) -> Void) async throws -> URL {
         guard !clips.isEmpty else { throw StitchError.noClips }
 
         try? URL.ensureDirectoryExists(URL.stitchedDirectory)
@@ -29,6 +58,7 @@ final class VideoStitchingService {
             throw StitchError.compositionFailed
         }
 
+        let renderSize = outputFormat.renderSize
         var currentTime = CMTime.zero
         var instructions: [AVMutableVideoCompositionInstruction] = []
 
@@ -48,7 +78,8 @@ final class VideoStitchingService {
                 let preferredTransform = try await assetVideoTrack.load(.preferredTransform)
                 let fitTransform = self.letterboxTransform(
                     naturalSize: naturalSize,
-                    preferredTransform: preferredTransform
+                    preferredTransform: preferredTransform,
+                    renderSize: renderSize
                 )
 
                 let instruction = AVMutableVideoCompositionInstruction()
@@ -119,7 +150,7 @@ final class VideoStitchingService {
         }
     }
 
-    private func letterboxTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform) -> CGAffineTransform {
+    private func letterboxTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform, renderSize: CGSize) -> CGAffineTransform {
         // Calculate effective display size after applying preferredTransform
         let effectiveRect = CGRect(origin: .zero, size: naturalSize).applying(preferredTransform)
         let effectiveWidth = abs(effectiveRect.width)

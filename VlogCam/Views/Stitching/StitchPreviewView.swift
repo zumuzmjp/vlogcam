@@ -14,6 +14,7 @@ struct StitchPreviewView: View {
     @State private var saved = false
     @State private var loadedFromCache = false
     @State private var showHistory = false
+    @State private var outputFormat: VideoOutputFormat = .portrait16_9
 
     private let stitchService = VideoStitchingService()
     private let photoService = PhotoLibraryService()
@@ -70,6 +71,44 @@ struct StitchPreviewView: View {
                     }
 
                     Spacer()
+
+                    // Output format selector
+                    if stitchedURL == nil && !isStitching {
+                        VStack(spacing: 8) {
+                            Text("OUTPUT")
+                                .font(VintageFont.caption(10))
+                                .foregroundStyle(RetroTheme.faded)
+                                .tracking(2)
+
+                            HStack(spacing: 8) {
+                                ForEach(VideoOutputFormat.allCases) { format in
+                                    Button {
+                                        outputFormat = format
+                                        HapticService.impact(.light)
+                                    } label: {
+                                        VStack(spacing: 4) {
+                                            Image(systemName: format.icon)
+                                                .font(.system(size: 16))
+                                            Text(format.label)
+                                                .font(VintageFont.lcd(10))
+                                        }
+                                        .foregroundStyle(outputFormat == format ? RetroTheme.accent : RetroTheme.faded)
+                                        .frame(width: 60, height: 50)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(outputFormat == format ? RetroTheme.accent.opacity(0.15) : RetroTheme.surfaceBackground)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .stroke(outputFormat == format ? RetroTheme.accent.opacity(0.5) : RetroTheme.metalDark.opacity(0.3), lineWidth: 1)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
 
                     VStack(spacing: 12) {
                         if stitchedURL != nil && !saved {
@@ -149,7 +188,7 @@ struct StitchPreviewView: View {
         let key = cacheService.cacheKey(for: clips)
         Task {
             do {
-                let url = try await stitchService.stitch(clips: clips, cacheKey: key) { p in
+                let url = try await stitchService.stitch(clips: clips, outputFormat: outputFormat, cacheKey: key) { p in
                     progress = p
                 }
                 stitchedURL = url
