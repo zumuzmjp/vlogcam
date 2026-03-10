@@ -6,6 +6,7 @@ enum VideoOutputFormat: String, CaseIterable, Identifiable {
     case portrait4_3 = "3:4"
     case landscape16_9 = "16:9"
     case landscape4_3 = "4:3"
+    case cinematic = "21:9"
 
     var id: String { rawValue }
 
@@ -17,18 +18,27 @@ enum VideoOutputFormat: String, CaseIterable, Identifiable {
         case .portrait4_3:   return CGSize(width: 1080, height: 1440)
         case .landscape16_9: return CGSize(width: 1920, height: 1080)
         case .landscape4_3:  return CGSize(width: 1440, height: 1080)
+        case .cinematic:     return CGSize(width: 1920, height: 822)
         }
+    }
+
+    /// Cinematic uses fill (crop top/bottom), others use fit (letterbox)
+    var usesFillScaling: Bool {
+        self == .cinematic
     }
 
     var isPortrait: Bool {
         switch self {
         case .portrait16_9, .portrait4_3: return true
-        case .landscape16_9, .landscape4_3: return false
+        case .landscape16_9, .landscape4_3, .cinematic: return false
         }
     }
 
     var icon: String {
-        isPortrait ? "rectangle.portrait" : "rectangle"
+        switch self {
+        case .cinematic: return "film"
+        default: return isPortrait ? "rectangle.portrait" : "rectangle"
+        }
     }
 }
 
@@ -79,7 +89,8 @@ final class VideoStitchingService {
                 let fitTransform = self.letterboxTransform(
                     naturalSize: naturalSize,
                     preferredTransform: preferredTransform,
-                    renderSize: renderSize
+                    renderSize: renderSize,
+                    fill: outputFormat.usesFillScaling
                 )
 
                 let instruction = AVMutableVideoCompositionInstruction()
@@ -150,16 +161,16 @@ final class VideoStitchingService {
         }
     }
 
-    private func letterboxTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform, renderSize: CGSize) -> CGAffineTransform {
+    private func letterboxTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform, renderSize: CGSize, fill: Bool = false) -> CGAffineTransform {
         // Calculate effective display size after applying preferredTransform
         let effectiveRect = CGRect(origin: .zero, size: naturalSize).applying(preferredTransform)
         let effectiveWidth = abs(effectiveRect.width)
         let effectiveHeight = abs(effectiveRect.height)
 
-        // Scale to fit within renderSize
+        // fit = letterbox (black bars), fill = crop (no bars, overflow clipped)
         let scaleX = renderSize.width / effectiveWidth
         let scaleY = renderSize.height / effectiveHeight
-        let scale = min(scaleX, scaleY)
+        let scale = fill ? max(scaleX, scaleY) : min(scaleX, scaleY)
 
         let scaledWidth = effectiveWidth * scale
         let scaledHeight = effectiveHeight * scale

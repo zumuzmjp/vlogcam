@@ -35,8 +35,10 @@ struct StitchPreviewView: View {
                 VStack(spacing: 20) {
                     if let player {
                         VideoPlayer(player: player)
+                            .aspectRatio(outputFormat.renderSize, contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: RetroTheme.cornerRadius))
                             .padding(.horizontal)
+                            .animation(.easeInOut(duration: 0.3), value: outputFormat)
 
                         if loadedFromCache {
                             Text("Loaded from cache")
@@ -57,16 +59,29 @@ struct StitchPreviewView: View {
                         }
                     } else {
                         VStack(spacing: 12) {
-                            Image(systemName: "film.stack")
-                                .font(.system(size: 40))
-                                .foregroundStyle(RetroTheme.faded)
-                            Text("\(clipsToStitch.count) clips ready")
-                                .font(VintageFont.body())
-                                .foregroundStyle(RetroTheme.textPrimary)
-                            let totalDur = clipsToStitch.reduce(0.0) { $0 + $1.duration }
-                            Text(String(format: "Total: %.1fs", totalDur))
-                                .font(VintageFont.caption())
-                                .foregroundStyle(RetroTheme.faded)
+                            // Format shape preview
+                            RoundedRectangle(cornerRadius: RetroTheme.cornerRadius)
+                                .strokeBorder(RetroTheme.faded.opacity(0.4), style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+                                .aspectRatio(outputFormat.renderSize, contentMode: .fit)
+                                .overlay {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "film.stack")
+                                            .font(.system(size: 32))
+                                            .foregroundStyle(RetroTheme.faded)
+                                        Text("\(clipsToStitch.count) clips ready")
+                                            .font(VintageFont.body())
+                                            .foregroundStyle(RetroTheme.textPrimary)
+                                        let totalDur = clipsToStitch.reduce(0.0) { $0 + $1.duration }
+                                        Text(String(format: "Total: %.1fs", totalDur))
+                                            .font(VintageFont.caption())
+                                            .foregroundStyle(RetroTheme.faded)
+                                        Text(outputFormat.label)
+                                            .font(VintageFont.lcd(14))
+                                            .foregroundStyle(RetroTheme.accent)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .animation(.easeInOut(duration: 0.3), value: outputFormat)
                         }
                     }
 
@@ -80,7 +95,7 @@ struct StitchPreviewView: View {
                                 .foregroundStyle(RetroTheme.faded)
                                 .tracking(2)
 
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 ForEach(VideoOutputFormat.allCases) { format in
                                     Button {
                                         outputFormat = format
@@ -88,12 +103,12 @@ struct StitchPreviewView: View {
                                     } label: {
                                         VStack(spacing: 4) {
                                             Image(systemName: format.icon)
-                                                .font(.system(size: 16))
+                                                .font(.system(size: 14))
                                             Text(format.label)
-                                                .font(VintageFont.lcd(10))
+                                                .font(VintageFont.lcd(9))
                                         }
                                         .foregroundStyle(outputFormat == format ? RetroTheme.accent : RetroTheme.faded)
-                                        .frame(width: 60, height: 50)
+                                        .frame(width: 54, height: 46)
                                         .background(
                                             RoundedRectangle(cornerRadius: 6)
                                                 .fill(outputFormat == format ? RetroTheme.accent.opacity(0.15) : RetroTheme.surfaceBackground)
@@ -128,7 +143,9 @@ struct StitchPreviewView: View {
                                 Button("Re-stitch") {
                                     loadedFromCache = false
                                     saved = false
-                                    startStitching()
+                                    player?.pause()
+                                    player = nil
+                                    stitchedURL = nil
                                 }
                                 .buttonStyle(RetroButtonStyle(color: RetroTheme.warmBrown))
                             } else if stitchedURL == nil {

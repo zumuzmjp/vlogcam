@@ -5,6 +5,7 @@ struct AlbumDetailView: View {
     @State private var showEdit = false
     @State private var showStitchAll = false
     @State private var showMap = false
+    @State private var showPreview = false
     @State private var pickupState = ClipPickupState()
 
     var body: some View {
@@ -54,6 +55,12 @@ struct AlbumDetailView: View {
                             .foregroundStyle(RetroTheme.accent)
                     }
                     Button {
+                        showPreview = true
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .foregroundStyle(RetroTheme.accent)
+                    }
+                    Button {
                         showStitchAll = true
                     } label: {
                         Image(systemName: "film.stack")
@@ -73,6 +80,9 @@ struct AlbumDetailView: View {
         }
         .sheet(isPresented: $showStitchAll) {
             StitchPreviewView(album: album, page: nil)
+        }
+        .fullScreenCover(isPresented: $showPreview) {
+            QuickPreviewPlayer(clips: album.sortedPages.flatMap { $0.sortedClips })
         }
     }
 }

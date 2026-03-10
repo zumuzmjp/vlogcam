@@ -4,6 +4,7 @@ struct FilmStripView: View {
     let page: AlbumPage
     @State private var showReorder = false
     @State private var showStitch = false
+    @State private var showPreview = false
     @Environment(ClipPickupState.self) private var pickupState: ClipPickupState?
     @Environment(\.modelContext) private var modelContext
 
@@ -80,6 +81,14 @@ struct FilmStripView: View {
 
                 if !page.sortedClips.isEmpty {
                     Button {
+                        showPreview = true
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(RetroButtonStyle(color: RetroTheme.accent))
+
+                    Button {
                         showReorder = true
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
@@ -107,6 +116,9 @@ struct FilmStripView: View {
             if let album = page.album {
                 StitchPreviewView(album: album, page: page)
             }
+        }
+        .fullScreenCover(isPresented: $showPreview) {
+            QuickPreviewPlayer(clips: page.sortedClips)
         }
     }
 
