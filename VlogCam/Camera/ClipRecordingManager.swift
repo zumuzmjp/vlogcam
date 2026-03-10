@@ -17,6 +17,8 @@ final class ClipRecordingManager: NSObject, ObservableObject {
     private var timer: Timer?
     private var startTime: Date?
     private let clipStorage = ClipStorageService.shared
+    /// Duration (seconds) to trim from the start of each clip to remove tap sound
+    private static let tapTrimDuration: CMTime = CMTime(seconds: 0.25, preferredTimescale: 600)
 
     func configure(movieOutput: AVCaptureMovieFileOutput) {
         self.movieOutput = movieOutput
@@ -90,26 +92,79 @@ extension ClipRecordingManager: AVCaptureFileOutputRecordingDelegate {
                 let nsError = error as NSError
                 if nsError.domain == AVFoundationErrorDomain &&
                    nsError.code == AVError.maximumDurationReached.rawValue {
-                    let asset = AVURLAsset(url: outputFileURL)
-                    let duration = CMTimeGetSeconds(asset.duration)
-                    if duration >= 0.5 {
-                        self.delegate?.recordingDidFinish(outputURL: outputFileURL, duration: duration)
-                    }
+                    await self.trimAndDeliver(outputFileURL)
                 } else {
                     self.delegate?.recordingDidFail(error: error)
                 }
                 return
             }
 
-            let asset = AVURLAsset(url: outputFileURL)
-            let duration = CMTimeGetSeconds(asset.duration)
+            await self.trimAndDeliver(outputFileURL)
+        }
+    }
 
-            if duration < 0.5 {
-                try? FileManager.default.removeItem(at: outputFileURL)
-                return
+    /// Trim the first 0.25s (tap sound) from the recorded clip, then notify delegate
+    private func trimAndDeliver(_ fileURL: URL) async {
+        let asset = AVURLAsset(url: fileURL)
+        let totalDuration = CMTimeGetSeconds(asset.duration)
+
+        guard totalDuration >= 0.5 else {
+            try? FileManager.default.removeItem(at: fileURL)
+            return
+        }
+
+        let trimStart = Self.tapTrimDuration
+        let assetDuration = asset.duration
+
+        // Skip trim if clip is too short to trim meaningfully
+        guard CMTimeCompare(assetDuration, trimStart) == 1 else {
+            let duration = CMTimeGetSeconds(assetDuration)
+            delegate?.recordingDidFinish(outputURL: fileURL, duration: duration)
+            return
+        }
+
+        let timeRange = CMTimeRange(start: trimStart, end: assetDuration)
+        let composition = AVMutableComposition()
+
+        do {
+            if let videoTrack = asset.tracks(withMediaType: .video).first {
+                let compVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                try compVideoTrack?.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+                compVideoTrack?.preferredTransform = videoTrack.preferredTransform
             }
+            if let audioTrack = asset.tracks(withMediaType: .audio).first {
+                let compAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+                try compAudioTrack?.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            }
+        } catch {
+            // Trim failed — deliver original file
+            delegate?.recordingDidFinish(outputURL: fileURL, duration: totalDuration)
+            return
+        }
 
-            self.delegate?.recordingDidFinish(outputURL: outputFileURL, duration: duration)
+        // Export trimmed clip to a temp file, then replace the original
+        let trimmedURL = fileURL.deletingLastPathComponent()
+            .appending(component: "trim_\(fileURL.lastPathComponent)")
+
+        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+            delegate?.recordingDidFinish(outputURL: fileURL, duration: totalDuration)
+            return
+        }
+        exporter.outputURL = trimmedURL
+        exporter.outputFileType = .mov
+
+        await exporter.export()
+
+        if exporter.status == .completed {
+            // Replace original with trimmed version
+            try? FileManager.default.removeItem(at: fileURL)
+            try? FileManager.default.moveItem(at: trimmedURL, to: fileURL)
+            let trimmedDuration = totalDuration - CMTimeGetSeconds(trimStart)
+            delegate?.recordingDidFinish(outputURL: fileURL, duration: trimmedDuration)
+        } else {
+            // Export failed — deliver original
+            try? FileManager.default.removeItem(at: trimmedURL)
+            delegate?.recordingDidFinish(outputURL: fileURL, duration: totalDuration)
         }
     }
 }
